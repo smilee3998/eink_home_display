@@ -1,0 +1,6 @@
+.env
+*.pyc
+.vscode
+*.json
+*.log
+cache

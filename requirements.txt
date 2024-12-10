@@ -1,0 +1,3 @@
+pillow==9.5.0  # last version that supports 32-bit python
+requests
+python-dotenv
