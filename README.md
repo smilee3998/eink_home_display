@@ -53,6 +53,7 @@ Alternatively, you can run the program directly without setting up a cron job.
 
 
 # Results
+![eink](https://github.com/user-attachments/assets/ef5620a0-1e34-44e5-abe9-c68522c11cc5)
 
 
 Feel free to reach out if you have any questions or need further assistance!
