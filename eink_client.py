@@ -12,9 +12,7 @@ class EinkClient:
         self.paste_image(img, paste_coords)
         self.display.draw_full(DisplayModes.GC16)
 
-    def partial_update(
-        self, img: Image.Image, paste_coords: tuple[int, int] = (0, 0)
-    ):
+    def partial_update(self, img: Image.Image, paste_coords: tuple[int, int] = (0, 0)):
         self.paste_image(img, paste_coords)
         self.display.draw_partial(DisplayModes.DU)
 
@@ -32,4 +30,3 @@ class EinkClient:
     @property
     def height(self) -> int:
         return self.display.height
-

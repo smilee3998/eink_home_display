@@ -10,7 +10,6 @@ from utils import *
 from constants import *
 
 
-
 class WeatherStation:
     def __init__(
         self,
@@ -77,31 +76,31 @@ class WeatherStation:
         )
 
     def partial_update_time(self):
-        """load image from cache and update time only
-        """
+        """load image from cache and update time only"""
         try:
-            self.image = Image.open(CACHE_IMAGE_DIR)    
-            self._paste_time_block()        
+            self.image = Image.open(CACHE_IMAGE_DIR)
+            self._paste_time_block()
             self.display.partial_update(self.image)
         except FileNotFoundError:
             self.update_all()
-        
+
     def partial_update_current_weather(self):
-        """load image from cache and update time and current weather only
-        """
+        """load image from cache and update time and current weather only"""
         try:
             self.image = Image.open(CACHE_IMAGE_DIR2)
             self._paste_time_block()
-            
+
             wc = WeatherClient()
             current_weather_icon, current_weather_des = wc.get_current_weather()
-            self._paste_short_weather_block(ICON_DIR / f"{current_weather_icon}.png", current_weather_des)
+            self._paste_short_weather_block(
+                ICON_DIR / f"{current_weather_icon}.png", current_weather_des
+            )
             self.image.save(CACHE_IMAGE_DIR)
             self.display.partial_update(self.image)
-            
+
         except FileNotFoundError:
             self.update_all()
-            
+
     def update_all(self):
         wc = WeatherClient()
         try:
@@ -125,10 +124,10 @@ class WeatherStation:
     ):
         self._paste_user_block()
         self._paste_grid_weather_block(weather_data)
-        
+
         # cache image without current weather
         self.image.save(CACHE_IMAGE_DIR2)
-        
+
         self._paste_short_weather_block(current_weather_icon_path, current_weather_des)
 
         # cache image with current weather
@@ -138,10 +137,13 @@ class WeatherStation:
     def _paste_grid_weather_block(self, weather_data: list[tuple[datetime, float]]):
         block = Image.new("L", self.grid_weather_block.as_tuple(), 255)
         draw = ImageDraw.Draw(block)
-        cell_width, cell_height = self.grid_weather_block.width // 6, self.grid_weather_block.height // 4
+        cell_width, cell_height = (
+            self.grid_weather_block.width // 6,
+            self.grid_weather_block.height // 4,
+        )
 
         grid_data, days_list, time_slots = self._organize_data(weather_data)
-        
+
         font = find_best_text_size("25.5°", cell_width, cell_height)
 
         for i, day in enumerate(days_list):
@@ -164,11 +166,11 @@ class WeatherStation:
 
         icon_paths = (AM_ICON_DIR, PM_ICON_DIR, NIGHT_ICON_DIR)
         for j, icon_path in enumerate(icon_paths):
-            icon = Image.open(icon_path).convert('L')
-            
+            icon = Image.open(icon_path).convert("L")
+
             # make the icon into lighter gray
             icon = icon.point(lambda p: 70 if p == 0 else p)
-            
+
             icon.thumbnail((cell_width - 20, cell_height - 20))
             # small x offset to avoid overlap with time
             block.paste(icon, (5, (j + 1) * cell_height))
@@ -233,13 +235,14 @@ class WeatherStation:
 
         return grid_data, days_list, time_slots
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Update weather station")
     parser.add_argument("--time_only", action=argparse.BooleanOptionalAction)
     parser.add_argument("--weather_only", action=argparse.BooleanOptionalAction)
     parser.add_argument("--auto_update", action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    
+
     # Logging configuration for both file and console
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -264,14 +267,18 @@ if __name__ == "__main__":
     )
     logger.addHandler(console_handler)
 
-
     display = EinkClient(vcom=-1.55, rotate="flip")
-    weather_station = WeatherStation(display, Image.open(ICON_DIR / "cat.jpg"))
+    weather_station = WeatherStation(
+        display, Image.open(ICON_DIR / "cat.jpg")
+    )
     if args.auto_update:
         now = datetime.now()
-        if now.hour == WEATHER_FORECAST_UPDATE_TIME_HOUR and now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE:
+        if (
+            now.hour == WEATHER_FORECAST_UPDATE_TIME_HOUR
+            and now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE
+        ):
             # update all at a specific time at a day
-            logger.info("updateing current weather and forecast")
+            logger.info("updating current weather and forecast")
             weather_station.update_all()
         elif now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE:
             # update current weather at pre-set time in every hour
@@ -286,6 +293,5 @@ if __name__ == "__main__":
             logger.info("updating current weather.")
             weather_station.partial_update_current_weather()
         else:
-            logger.info("updateing current weather and forecast")
+            logger.info("updating current weather and forecast")
             weather_station.update_all()
-        

@@ -24,4 +24,4 @@ UNITS = "metric"
 
 LOG_FILE = "weather_display.log"
 CURRENT_WEATHER_UPDATE_TIME_MINUTE = 0  # used for auto update current weather at minute = 0 
-WEATHER_FORECAST_UPDATE_TIME_HOUR = 18  # used for auto update weather forecast at 18:00 
+WEATHER_FORECAST_UPDATE_TIME_HOUR = 0  # used for auto update weather forecast at 24:00 

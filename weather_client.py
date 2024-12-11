@@ -33,7 +33,7 @@ class WeatherClient:
         ):
             # delete expired weather cache
             cache_current = None
-            
+
         if cache_current is None:
             # fetch new data
             weather_data = self._fetch_current_weather()
@@ -42,7 +42,7 @@ class WeatherClient:
         else:
             logging.info("using cache current forecast")
             return self._load_current_weather(cache_current)
-    
+
     def get_5days_forecast(self) -> list[tuple[datetime, float]]:
         """get 5days forecast from cache data or fetch from api if cahce expired
 
@@ -80,7 +80,7 @@ class WeatherClient:
         self.longitude = os.environ.get("LONGITUDE")
 
     def _load_current_weather(self, data: dict) -> tuple[str, str]:
-        """get weather icon and short description from data fetched from current weather API 
+        """get weather icon and short description from data fetched from current weather API
 
         Args:
             data (dict): _description_
@@ -123,7 +123,7 @@ class WeatherClient:
         except KeyError as e:
             logging.error(f"Error when processing forecast data: {e}")
             raise e
-        
+
     def _fetch_current_weather(self):
         """fetch current weather data from OpenWeather"""
         api_url = f"https://api.openweathermap.org/data/2.5/weather"
@@ -165,7 +165,7 @@ class WeatherClient:
         cache_time = datetime.strptime(cache["list"][0]["dt_txt"], "%Y-%m-%d %H:%M:%S")
 
         return now.date() > cache_time.date()
-    
+
     def _check_cache_current_expired(self, cache: dict) -> bool:
         """check if the cache is an hour or more ago
 
@@ -176,7 +176,7 @@ class WeatherClient:
             bool: is cache expired
         """
         now = datetime.now()
-        cache_time = datetime.fromtimestamp(cache['dt'])
+        cache_time = datetime.fromtimestamp(cache["dt"])
 
         return now.hour > cache_time.hour
 
