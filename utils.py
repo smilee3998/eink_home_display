@@ -1,6 +1,8 @@
 from PIL import ImageFont
 from pathlib import Path
 from dataclasses import dataclass
+import requests
+import logging
 
 from constants import *
 
@@ -46,3 +48,14 @@ def find_best_text_size(text: str, max_width: int, max_height: int):
             break
 
     return ImageFont.truetype(FONT_DIR, font_size - 10)
+
+
+def fetch(url: str, des: str) -> dict:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        logging.info("{des} fetched successfully.")
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Failed to fetch {des}: {e}")
+        raise

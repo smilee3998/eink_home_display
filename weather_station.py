@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw
 import argparse
 
 from eink_client import EinkClient
-from weather_client import WeatherClient
+from weather_client import OpenWeatherClient
 from utils import *
 from constants import *
 
@@ -90,7 +90,7 @@ class WeatherStation:
             self.image = Image.open(CACHE_IMAGE_DIR2)
             self._paste_time_block()
 
-            wc = WeatherClient()
+            wc = OpenWeatherClient()
             current_weather_icon, current_weather_des = wc.get_current_weather()
             self._paste_short_weather_block(
                 ICON_DIR / f"{current_weather_icon}.png", current_weather_des
@@ -102,7 +102,8 @@ class WeatherStation:
             self.update_all()
 
     def update_all(self):
-        wc = WeatherClient()
+        # TODO wc as input
+        wc = OpenWeatherClient()
         try:
             forecast_data = wc.get_5days_forecast()
             current_weather_icon, current_weather_des = wc.get_current_weather()
