@@ -6,7 +6,7 @@ import json
 from typing import Callable
 
 from constants import *
-from utils import fetch
+from utils import fetch, timedelta_to_hours
 
 
 class WeatherClient(ABC):
@@ -36,7 +36,7 @@ class WeatherClient(ABC):
             if self.check_expired and (cache_current and check_expir(cache_current)):
                 # delete expired weather cache
                 cache_current = None
-        except KeyError:
+        except (TypeError, KeyError):
             logging.info("Cache is not in the right format. Delete.")
             cache_current = None
 
@@ -74,7 +74,7 @@ class WeatherClient(ABC):
             self._fetch_5days_forecast,
             self._load_5days_forecast,
         )
-        
+
     def get_12hrs_forecast(self) -> list[tuple[datetime, float]]:
         return self._get_weather(
             self.cache_forecast_path,
@@ -159,8 +159,13 @@ class WeatherClient(ABC):
         Returns:
             bool: is cache expired
         """
-        return datetime.now().hour > self._load_current_weather_timestamp(cache).hour
-    
+        return (
+            timedelta_to_hours(
+                datetime.now() - self._load_current_weather_timestamp(cache)
+            )
+            >= 1
+        )
+
     def _check_cache_hours_forecast_expired(self, cache: list[dict]) -> bool:
         """check if the cache is an hour or more ago
 
@@ -170,7 +175,12 @@ class WeatherClient(ABC):
         Returns:
             bool: is cache expired
         """
-        return datetime.now().hour > self._load_hours_forecast_timestamp(cache).hour
+        return (
+            timedelta_to_hours(
+                datetime.now() - self._load_hours_forecast_timestamp(cache)
+            )
+            >= 1
+        )
 
     @abstractmethod
     def _get_api_key(self):
@@ -202,11 +212,11 @@ class WeatherClient(ABC):
     @abstractmethod
     def _load_current_weather_timestamp(self, cache: dict) -> datetime:
         pass
-    
+
     @abstractmethod
     def _load_hours_forecast_timestamp(self, cache: list[dict]) -> datetime:
         pass
-    
+
     @abstractmethod
     def _load_12hrsforecast(self, data: list[dict]) -> list[tuple[datetime, float]]:
         pass
@@ -268,8 +278,8 @@ class AccuWeatherClient(WeatherClient):
     def _load_5days_forecast(self, data: dict) -> list[tuple[datetime, float]]:
         raise NotImplementedError()
 
-    def _load_current_weather_timestamp(self, cache: dict) -> datetime:
-        return datetime.fromtimestamp(cache["EpochTime"])
+    def _load_current_weather_timestamp(self, cache: list[dict]) -> datetime:
+        return datetime.fromtimestamp(cache[0]["EpochTime"])
 
     def _load_current_weather(self, data: dict) -> tuple[str, str]:
         """get weather icon and short description from data fetched from current weather API
@@ -281,24 +291,41 @@ class AccuWeatherClient(WeatherClient):
             tuple[str, str]: icon name, short description
         """
         current_weather = data[0]
-        # TODO match weather icon
-        current_weather_icon: str = str(current_weather["WeatherIcon"])
+        current_weather_icon: str = self.match_openweather_icon(
+            current_weather["WeatherIcon"]
+        )
         current_weather_des: str = current_weather["WeatherText"]
         return current_weather_icon, current_weather_des
 
-    def _load_12hrsforecast(self, data: list[dict]) -> list[tuple[datetime, float]]:
+    def _load_12hrsforecast(
+        self, data: list[dict]
+    ) -> list[tuple[datetime, tuple[float, str]]]:
+        """load 12 hrs forecast temperature and icon
+
+        Args:
+            data (list[dict]):  data fetched from AccuWeather
+
+        Raises:
+            KeyError: unknown format
+
+        Returns:
+            list[tuple[datetime, tuple[float, str]]]: a list of sorted forecast in (time, (temp, icon))
+        """
         weather_data = {}
         try:
             for item in data:
                 dt = datetime.strptime(item["DateTime"], "%Y-%m-%dT%H:%M:%S%z")
-                weather_data[dt] = item["Temperature"]["Value"]
+                weather_data[dt] = (
+                    item["Temperature"]["Value"],
+                    self.match_openweather_icon(item["WeatherIcon"]),
+                )
 
             return sorted(weather_data.items())
 
         except KeyError as e:
             logging.error(f"Error when processing forecast data: {e}")
             raise e
-        
+
     def fetch_5daysforecast_url(self):
         raise NotImplementedError
 
@@ -312,6 +339,52 @@ class AccuWeatherClient(WeatherClient):
             datetime:  timestamp of the most recent data
         """
         raise NotImplementedError
+
+    def match_openweather_icon(self, icon_num: int) -> str:
+        """use openweather icon to replace accuweather icon
+
+        Args:
+            icon_num (int): icon num of accuweather
+
+        Raises:
+            ValueError: not support / unknown icon_num
+
+        Returns:
+            str: icon name of openweather
+        """
+        if icon_num in (1, 2, 33, 34):
+            # sunny / mostly sunny -> sunny
+            return "01d"
+        elif icon_num in (3, 4, 35, 36):
+            # Partly sunny / intermittent clouds -> few clouds
+            return "02d"
+        elif icon_num in (5, 6, 37, 38):
+            # Hazy Sunshine, Mostly Cloudy -> scattered clouds
+            return "03d"
+        elif icon_num in (
+            7,
+            8,
+        ):
+            # Cloudy, Dreary -> broken clouds
+            return "03d"
+        elif icon_num in (11,):
+            # Fog -> mist
+            return "50d"
+        elif icon_num in (12, 13, 14, 39, 40):
+            # Showesr, Mostly Cloudy w Showers, Partly Sunny W Showers -> shower rain
+            return "09d"
+        elif icon_num in (15, 16, 17, 41, 42):
+            # T-Storms, Mostly Cloudy w T-Storms, Partly Sunny w T-Storms -> thunderstorm
+            return "11d"
+        elif icon_num in (18,):
+            # rain -> rain
+            return "10d"
+        elif icon_num in (19, 20, 21, 22, 23, 24, 25, 26, 29, 43, 44):
+            # snow -> snow
+            return "13d"
+        else:
+            raise ValueError(f"unknown icon num {icon_num}")
+
 
 class OpenWeatherClient(WeatherClient):
     def _get_api_key(self):
@@ -330,17 +403,16 @@ class OpenWeatherClient(WeatherClient):
         raise NotImplementedError(
             "12 hour forecast has not implemented for OpenWeatherClient"
         )
-    
+
     def _load_hours_forecast_timestamp(self) -> datetime:
         raise NotImplementedError(
             "12 hour forecast has not implemented for OpenWeatherClient"
         )
-    
+
     def _load_12hrsforecast(self, data: list[dict]) -> list[tuple[datetime, float]]:
         raise NotImplementedError(
             "12 hour forecast has not implemented for OpenWeatherClient"
         )
-     
 
     @property
     def fetch_5daysforecast_url(self) -> str:

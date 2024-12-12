@@ -1,11 +1,11 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 import argparse
 
 from eink_client import EinkClient
-from weather_client import OpenWeatherClient
+from weather_client import OpenWeatherClient, AccuWeatherClient
 from utils import *
 from constants import *
 
@@ -15,12 +15,14 @@ class WeatherStation:
         self,
         display: EinkClient,
         user_content: Image.Image | str | None,
+        wc: OpenWeatherClient | AccuWeatherClient,
         *,
         grid_horiz_ratio: float = 0.6,
         time_vert_ratio: float = 0.7,
         time_left_margin: int = 50,
         weather_icon_ratio: float = 0.4,
         weather_icon_margin: int = 50,
+        use_hrs_forecast: bool = False,
     ):
         """
 
@@ -39,6 +41,8 @@ class WeatherStation:
         self.time_left_margin = time_left_margin
         self.weather_icon_ratio = weather_icon_ratio
         self.weather_icon_margin = weather_icon_margin
+        self.wc = wc
+        self.use_hrs_forecast = use_hrs_forecast
 
         grid_width = int(self.display.width * grid_horiz_ratio)
         grid_height = grid_width // 4 * 3  # 4:3 ratio
@@ -90,8 +94,7 @@ class WeatherStation:
             self.image = Image.open(CACHE_IMAGE_DIR2)
             self._paste_time_block()
 
-            wc = OpenWeatherClient()
-            current_weather_icon, current_weather_des = wc.get_current_weather()
+            current_weather_icon, current_weather_des = self.wc.get_current_weather()
             self._paste_short_weather_block(
                 ICON_DIR / f"{current_weather_icon}.png", current_weather_des
             )
@@ -102,11 +105,13 @@ class WeatherStation:
             self.update_all()
 
     def update_all(self):
-        # TODO wc as input
-        wc = OpenWeatherClient()
         try:
-            forecast_data = wc.get_5days_forecast()
-            current_weather_icon, current_weather_des = wc.get_current_weather()
+            if self.use_hrs_forecast:
+                forecast_data = self.wc.get_12hrs_forecast()
+            else:
+                forecast_data = self.wc.get_5days_forecast()
+
+            current_weather_icon, current_weather_des = self.wc.get_current_weather()
             self._generate_display_image(
                 forecast_data,
                 ICON_DIR / f"{current_weather_icon}.png",
@@ -124,7 +129,10 @@ class WeatherStation:
         current_weather_des: str,
     ):
         self._paste_user_block()
-        self._paste_grid_weather_block(weather_data)
+        if self.use_hrs_forecast:
+            self._paste_hrs_forecast_block(weather_data)
+        else:
+            self._paste_grid_weather_block(weather_data)
 
         # cache image without current weather
         self.image.save(CACHE_IMAGE_DIR2)
@@ -134,6 +142,34 @@ class WeatherStation:
         # cache image with current weather
         self.image.save(CACHE_IMAGE_DIR)
         self._paste_time_block()
+
+    def _paste_hrs_forecast_block(
+        self, weather_data: list[tuple[datetime, tuple[float, str]]], num_hrs: int = 5
+    ):
+        block = Image.new("L", self.grid_weather_block.as_tuple(), 255)
+        draw = ImageDraw.Draw(block)
+
+        num_row = 3
+        cell_width, cell_height = (
+            self.grid_weather_block.width // num_hrs,
+            self.grid_weather_block.height // num_row,
+        )
+        temp_font = find_best_text_size("25.5°", cell_width, cell_height)
+        time_font = find_best_text_size("10a.m", cell_width, cell_height)
+
+        for i, (time, forecast) in enumerate(weather_data):
+            x = i * cell_width
+            y = cell_height // 2
+            time_txt = time.strftime("%l%p").replace("PM", "pm").replace("AM", "am")
+
+            temp, icon_name = forecast
+            icon = get_icon(ICON_DIR / f"{icon_name}.png", (cell_width, cell_height))
+
+            draw.text((x, y), time_txt, fill="black", font=time_font)
+            draw.text((x, y + cell_height), f"{temp}°", fill="black", font=temp_font)
+            block.paste(icon, (x, y + cell_height * 2))
+
+        self.image.paste(block, self.grid_weather_block.paste_coord)
 
     def _paste_grid_weather_block(self, weather_data: list[tuple[datetime, float]]):
         block = Image.new("L", self.grid_weather_block.as_tuple(), 255)
@@ -167,12 +203,11 @@ class WeatherStation:
 
         icon_paths = (AM_ICON_DIR, PM_ICON_DIR, NIGHT_ICON_DIR)
         for j, icon_path in enumerate(icon_paths):
-            icon = Image.open(icon_path).convert("L")
+            icon = get_icon(icon_path, size=(cell_width - 20, cell_height - 20))
 
             # make the icon into lighter gray
             icon = icon.point(lambda p: 70 if p == 0 else p)
 
-            icon.thumbnail((cell_width - 20, cell_height - 20))
             # small x offset to avoid overlap with time
             block.paste(icon, (5, (j + 1) * cell_height))
 
@@ -242,6 +277,8 @@ if __name__ == "__main__":
     parser.add_argument("--time_only", action=argparse.BooleanOptionalAction)
     parser.add_argument("--weather_only", action=argparse.BooleanOptionalAction)
     parser.add_argument("--auto_update", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--use_accu", action=argparse.BooleanOptionalAction)
+
     args = parser.parse_args()
 
     # Logging configuration for both file and console
@@ -269,8 +306,16 @@ if __name__ == "__main__":
     logger.addHandler(console_handler)
 
     display = EinkClient(vcom=-1.55, rotate="flip")
+    if args.use_accu:
+        wc = AccuWeatherClient()
+    else:
+        wc = OpenWeatherClient()
+
     weather_station = WeatherStation(
-        display, Image.open(ICON_DIR / "cat.jpg")
+        display,
+        Image.open(ICON_DIR / "cat.jpg"),
+        wc,
+        use_hrs_forecast=True,
     )
     if args.auto_update:
         now = datetime.now()
