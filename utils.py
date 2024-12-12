@@ -1,18 +1,22 @@
-from PIL import ImageFont
+from PIL import ImageFont, Image
 from pathlib import Path
 from dataclasses import dataclass
+import requests
+import logging
+from datetime import timedelta
 
 from constants import *
+
 
 @dataclass
 class Block:
     width: int
     height: int
     paste_coord: tuple[int, int]
-    
+
     def as_tuple(self) -> tuple[int, int]:
         return (self.width, self.height)
-    
+
     def __str__(self):
         return f"width={self.width} height={self.height}"
 
@@ -31,7 +35,7 @@ def find_best_text_size(text: str, max_width: int, max_height: int):
     font_size = 10
     font = ImageFont.truetype(FONT_DIR, font_size)
 
-    lines = text.split('\n')
+    lines = text.split("\n")
     while True:
         total_height = sum(font.getsize(line)[1] for line in lines)
         max_line_width = max(font.getsize(line)[0] for line in lines)
@@ -40,9 +44,31 @@ def find_best_text_size(text: str, max_width: int, max_height: int):
             font = ImageFont.truetype(FONT_DIR, font_size)
         else:
             break
-        
+
         if font_size > 1000:
             print("reach max font size")
             break
 
     return ImageFont.truetype(FONT_DIR, font_size - 10)
+
+
+def fetch(url: str, des: str) -> dict:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        logging.info(f"{des} fetched successfully.")
+        return response.json()
+    except requests.RequestException as e:
+        logging.error(f"Failed to fetch {des}: {e}")
+        raise
+
+
+def get_icon(path: Path, size: tuple[int, int]) -> Image.Image:
+    icon = Image.open(path)
+    icon.thumbnail(size)
+
+    return icon
+
+
+def timedelta_to_hours(td: timedelta) -> int:
+    return int(td.total_seconds() // 3600)
