@@ -319,19 +319,27 @@ if __name__ == "__main__":
     )
     if args.auto_update:
         now = datetime.now()
-        if (
-            now.hour == WEATHER_FORECAST_UPDATE_TIME_HOUR
-            and now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE
-        ):
-            # update all at a specific time at a day
-            logger.info("updating current weather and forecast")
-            weather_station.update_all()
-        elif now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE:
-            # update current weather at pre-set time in every hour
-            logger.info("updating current weather.")
-            weather_station.partial_update_current_weather()
+        if not args.use_accu:
+            if (
+                now.hour == WEATHER_FORECAST_UPDATE_TIME_HOUR
+                and now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE
+            ):
+                # update all at a specific time at a day
+                logger.info("updating current weather and forecast")
+                weather_station.update_all()
+            elif now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE:
+                # update current weather at pre-set time in every hour
+                logger.info("updating current weather.")
+                weather_station.partial_update_current_weather()
+            else:
+                weather_station.partial_update_time()
         else:
-            weather_station.partial_update_time()
+            if now.minute == CURRENT_WEATHER_UPDATE_TIME_MINUTE:
+                # update all every hour
+                logger.info("updating current weather and forecast")
+                weather_station.update_all()
+            else:
+                weather_station.partial_update_time()
     else:
         if args.time_only:
             weather_station.partial_update_time()
