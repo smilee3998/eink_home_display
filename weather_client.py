@@ -76,6 +76,7 @@ class WeatherClient(ABC):
         )
 
     def get_12hrs_forecast(self) -> list[tuple[datetime, float]]:
+        # TODO add percentage if rainning
         return self._get_weather(
             self.cache_forecast_path,
             self._check_cache_hours_forecast_expired,

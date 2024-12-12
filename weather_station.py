@@ -21,7 +21,6 @@ class WeatherStation:
         time_vert_ratio: float = 0.7,
         time_left_margin: int = 50,
         weather_icon_ratio: float = 0.4,
-        weather_icon_margin: int = 50,
         use_hrs_forecast: bool = False,
     ):
         """
@@ -40,7 +39,6 @@ class WeatherStation:
         self.image = Image.new("L", (display.width, display.height), 255)
         self.time_left_margin = time_left_margin
         self.weather_icon_ratio = weather_icon_ratio
-        self.weather_icon_margin = weather_icon_margin
         self.wc = wc
         self.use_hrs_forecast = use_hrs_forecast
 
@@ -71,12 +69,12 @@ class WeatherStation:
         self.icon_block = Block(
             int(self.short_weather_block.width * self.weather_icon_ratio),
             self.short_weather_block.height,
-            (0, self.weather_icon_margin),
+            (0, 0),
         )
         self.des_block = Block(
             int(self.short_weather_block.width * (1 - self.weather_icon_ratio)),
             self.short_weather_block.height,
-            (self.icon_block.width, self.short_weather_block.height // 2),
+            (self.icon_block.width, 0),
         )
 
     def partial_update_time(self):
@@ -159,15 +157,38 @@ class WeatherStation:
 
         for i, (time, forecast) in enumerate(weather_data):
             x = i * cell_width
-            y = cell_height // 2
+            y = 0
             time_txt = time.strftime("%l%p").replace("PM", "pm").replace("AM", "am")
 
             temp, icon_name = forecast
             icon = get_icon(ICON_DIR / f"{icon_name}.png", (cell_width, cell_height))
 
-            draw.text((x, y), time_txt, fill="black", font=time_font)
-            draw.text((x, y + cell_height), f"{temp}°", fill="black", font=temp_font)
-            block.paste(icon, (x, y + cell_height * 2))
+            draw.text(
+                get_center_coord(
+                    time_txt, (cell_width, cell_height), (x, y), font=time_font
+                ),
+                time_txt,
+                fill="black",
+                font=time_font,
+            )
+
+            draw.text(
+                get_center_coord(
+                    str(temp),
+                    (cell_width, cell_height),
+                    (x, y + cell_height),
+                    font=temp_font,
+                ),
+                f"{temp}°",
+                fill="black",
+                font=temp_font,
+            )
+            block.paste(
+                icon,
+                get_center_coord(
+                    icon, (cell_width, cell_height), (x, y + cell_height * 2)
+                ),
+            )
 
         self.image.paste(block, self.grid_weather_block.paste_coord)
 
@@ -186,17 +207,32 @@ class WeatherStation:
         for i, day in enumerate(days_list):
             for j, time in enumerate(time_slots):
                 x0 = (i + 1) * cell_width
-                y0 = (j + 1) * cell_height + cell_height // 3
+                y0 = (j + 1) * cell_height
                 # Draw the data
                 value = grid_data[i][j]
                 if value is not None:
-                    draw.text((x0 + 5, y0), f" {value:.1f}°", fill="black", font=font)
+                    draw.text(
+                        get_center_coord(
+                            f" {value:.1f}°",
+                            (cell_width, cell_height),
+                            (x0, y0),
+                            font=font,
+                        ),
+                        f" {value:.1f}°",
+                        fill="black",
+                        font=font,
+                    )
 
         # Draw the headers
         for i, day in enumerate(days_list):
             draw.text(
-                ((i + 1) * cell_width + 5, cell_height // 2),
-                f"  {day}",
+                get_center_coord(
+                    f"{day}",
+                    (cell_width, cell_height),
+                    ((i + 1) * cell_width, 0),
+                    font=font,
+                ),
+                f"{day}",
                 fill="black",
                 font=font,
             )
@@ -209,7 +245,12 @@ class WeatherStation:
             icon = icon.point(lambda p: 70 if p == 0 else p)
 
             # small x offset to avoid overlap with time
-            block.paste(icon, (5, (j + 1) * cell_height))
+            block.paste(
+                icon,
+                box=get_center_coord(
+                    icon, (cell_width, cell_height), (0, (j + 1) * cell_height)
+                ),
+            )
 
         self.image.paste(block, self.grid_weather_block.paste_coord)
 
@@ -219,11 +260,19 @@ class WeatherStation:
 
         icon = Image.open(icon_path)
         icon = icon.resize(self.icon_block.as_tuple())
-        block.paste(icon, box=self.icon_block.paste_coord)
+
+        block.paste(
+            icon,
+            box=get_center_coord(
+                icon, self.icon_block.as_tuple(), self.icon_block.paste_coord
+            ),
+        )
 
         font = find_best_text_size(des, self.des_block.width, self.des_block.height)
         draw.text(
-            xy=self.des_block.paste_coord,
+            xy=get_center_coord(
+                des, self.des_block.as_tuple(), self.des_block.paste_coord, font=font
+            ),
             text=des,
             font=font,
             fill="black",
@@ -236,7 +285,13 @@ class WeatherStation:
         now = datetime.now()
         text = f"{now.hour:02d}\n{now.minute:02d}"
         font = find_best_text_size(text, self.time_block.width, self.time_block.height)
-        draw.text((self.time_left_margin, 0), text, font=font, fill="black")
+
+        draw.text(
+            get_center_coord(text, self.time_block.as_tuple(), (0, 0), font=font),
+            text,
+            font=font,
+            fill="black",
+        )
 
         self.image.paste(block, (self.time_block.paste_coord))
 
@@ -244,7 +299,14 @@ class WeatherStation:
         if self.user_content:
             if isinstance(self.user_content, Image.Image):
                 self.user_content.thumbnail(self.user_content_block.as_tuple())
-                self.image.paste(self.user_content, self.user_content_block.paste_coord)
+                x_offset, y_offset = center_image(
+                    self.user_content, self.user_content_block.as_tuple()
+                )
+                paste_coord = (
+                    self.user_content_block.paste_coord[0] + x_offset,
+                    self.user_content_block.paste_coord[1] + y_offset,
+                )
+                self.image.paste(self.user_content, paste_coord)
             else:
                 raise NotImplementedError
 
