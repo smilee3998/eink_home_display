@@ -315,7 +315,7 @@ if __name__ == "__main__":
         display,
         Image.open(ICON_DIR / "cat.jpg"),
         wc,
-        use_hrs_forecast=True,
+        use_hrs_forecast=args.use_accu,
     )
     if args.auto_update:
         now = datetime.now()
