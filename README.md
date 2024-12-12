@@ -3,8 +3,9 @@ This repository contains an implementation of an E-Paper Weather Station using a
 
 ## Features
 - Partial updating clock
-- Real-time weather updates
-- 5-day weather forecast
+- Real-time weather updates using OpenWeather or AccuWeather API 
+- 5-day weather forecast using OpenWeather API
+- at most 12 hours weather forecast using AccuWeather API
 - Customizable display layout
 
 ## Requirements
@@ -16,9 +17,10 @@ pip install -r requirements.txt
 In addition to the above requirements, you will need the  [IT8951](https://github.com/GregDMeyer/IT8951) library to controll the e-ink display. 
 
 ## Configuration
-Before running the program, you need to create a .env file to specify your API key and location. The file should contain the following variables:
+Before running the program, you need to create a .env file to specify your AccuWeather or OpenWeather API key and location. The file should contain the following variables:
 ```
 OPEN_WEATHER_API_KEY=your_api_key_here
+ACCU_WEATHER_API_KEY=your_api_key_here
 LATITUDE=your_latitude_here
 LONGITUDE=your_longitude_here
 ```
@@ -43,17 +45,23 @@ To set up the cron job, run:
 ```bash
 crontab -e
 ```
-Then add the following line (update the paths accordingly):
+To use AccuWeather as source, add the following line (update the paths accordingly):
 
 ```
-* * * * * /path/to/python /path/to/weather_station.py --auto_update
+* * * * * /path/to/python /path/to/weather_station.py --auto_update --use_accu
+```
+To use OpenWeather as source, add the following line (update the paths accordingly):
+
+```
+* * * * * /path/to/python /path/to/weather_station.py --auto_update --no_use_accu
 ```
 Alternatively, you can run the program directly without setting up a cron job.
 
 
 
 # Results
-![eink](https://github.com/user-attachments/assets/ef5620a0-1e34-44e5-abe9-c68522c11cc5)
+![eink_open_weather_5days](demo/display_v1.jpeg)
+![eink_open_weather_5hrs](demo/display_v2.jpeg)
 
 
 Feel free to reach out if you have any questions or need further assistance!
