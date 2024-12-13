@@ -1,4 +1,4 @@
-from PIL import ImageFont, Image
+from PIL import ImageFont, Image, ImageDraw
 from pathlib import Path
 from dataclasses import dataclass
 import requests
@@ -127,3 +127,14 @@ def get_text_size(txt: str, font) -> tuple[int, int]:
     max_line_width = max(font.getsize(line)[0] for line in lines)
     
     return (max_line_width, total_height)
+
+
+def draw_text_at_center(draw: ImageDraw.ImageDraw, txt: str, font, block_size: tuple[int, int], xy: tuple[int, int]):
+    draw.text(
+        get_center_coord(
+            txt, block_size, xy, font=font
+        ),
+        txt,
+        fill="black",
+        font=font,
+    )

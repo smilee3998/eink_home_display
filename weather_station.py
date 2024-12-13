@@ -1,7 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from PIL import ImageDraw
 import argparse
 
 from eink_client import EinkClient
@@ -19,7 +18,6 @@ class WeatherStation:
         *,
         grid_horiz_ratio: float = 0.6,
         time_vert_ratio: float = 0.7,
-        time_left_margin: int = 50,
         weather_icon_ratio: float = 0.4,
         use_hrs_forecast: bool = False,
     ):
@@ -29,6 +27,8 @@ class WeatherStation:
             display (EinkClient): display to use
             grid_horiz_ratio (float, optional): horizontal ratio of the grid to the whole display. Defaults to 0.6.
             time_vert_ratio (float, optional): vertical ratio of the time to the whole display. Defaults to 0.7.
+            weather_icon_ratio (float, optional): horizontal ratio of the icon in the short weather block . Defaults to 0.4
+            use_hrs_forecast (bool, optional): optiona to display hourly forecast or 5days forecast. Defaults to False.
         """
         # TODO validate ratio
         if user_content and not isinstance(user_content, (Image.Image, str)):
@@ -37,13 +37,15 @@ class WeatherStation:
         self.display = display
         self.user_content = user_content
         self.image = Image.new("L", (display.width, display.height), 255)
-        self.time_left_margin = time_left_margin
         self.weather_icon_ratio = weather_icon_ratio
         self.wc = wc
         self.use_hrs_forecast = use_hrs_forecast
 
         grid_width = int(self.display.width * grid_horiz_ratio)
-        grid_height = grid_width // 4 * 3  # 4:3 ratio
+        if self.use_hrs_forecast:
+            grid_height = grid_width // 3 * 2  # 3:2 ratio
+        else:
+            grid_height = grid_width // 4 * 3  # 4:3 ratio
 
         self.time_block = Block(
             display.width - grid_width,
@@ -55,7 +57,7 @@ class WeatherStation:
         )
         self.short_weather_block = Block(
             display.width - self.grid_weather_block.width,
-            int(display.height * (1 - time_vert_ratio)),
+            int(display.height * (1 - time_vert_ratio - 0.1)),  # smaller ratio
             paste_coord=(0, self.time_block.height),
         )
         self.user_content_block = Block(
@@ -122,73 +124,82 @@ class WeatherStation:
 
     def _generate_display_image(
         self,
-        weather_data: list[tuple[datetime, float]],
+        weather_data: (
+            list[tuple[datetime, float]]
+            | list[tuple[datetime, tuple[float, str, float]]]
+        ),
         current_weather_icon_path: Path,
         current_weather_des: str,
     ):
-        self._paste_user_block()
+        # TODO better type hint
         if self.use_hrs_forecast:
             self._paste_hrs_forecast_block(weather_data)
         else:
             self._paste_grid_weather_block(weather_data)
+        self._paste_user_block()
 
-        # cache image without current weather
-        self.image.save(CACHE_IMAGE_DIR2)
+        self.image.save(CACHE_IMAGE_DIR2)  # cache image without current weather
 
         self._paste_short_weather_block(current_weather_icon_path, current_weather_des)
-
-        # cache image with current weather
-        self.image.save(CACHE_IMAGE_DIR)
+        self.image.save(CACHE_IMAGE_DIR) # cache image with current weather
         self._paste_time_block()
 
     def _paste_hrs_forecast_block(
-        self, weather_data: list[tuple[datetime, tuple[float, str]]], num_hrs: int = 5
+        self,
+        weather_data: list[tuple[datetime, tuple[float, str, float]]],
+        num_hrs: int = 6,
+        time_vert_ratio: float = 0.2,
+        temp_vert_ratio: float = 0.3,
+        icon_vert_ratio: float = 0.5,
+        prob_ratio: float = 0.15,
     ):
+        # TODO : limit num_hrs to 1, 2,3,4,5,6, 8, 10, 12
+        # define forecast block
         block = Image.new("L", self.grid_weather_block.as_tuple(), 255)
         draw = ImageDraw.Draw(block)
 
-        num_row = 3
-        cell_width, cell_height = (
-            self.grid_weather_block.width // num_hrs,
-            self.grid_weather_block.height // num_row,
-        )
-        temp_font = find_best_text_size("25.5°", cell_width, cell_height)
-        time_font = find_best_text_size("10a.m", cell_width, cell_height)
+        # define each div size
+        time_height = int(self.grid_weather_block.height * time_vert_ratio)
+        temp_height = int(self.grid_weather_block.height * temp_vert_ratio)
+        icon_height = int(self.grid_weather_block.height * icon_vert_ratio)
+        prob_height = int(icon_height * prob_ratio)
+        cell_width = self.grid_weather_block.width // num_hrs
+
+        # define text size used
+        temp_font = find_best_text_size("25.5°", cell_width, temp_height)
+        time_font = find_best_text_size("10a.m", cell_width, time_height)
+        prob_font = find_best_text_size("99%", cell_width, prob_height)
 
         for i, (time, forecast) in enumerate(weather_data):
+            # draw column
             x = i * cell_width
-            y = 0
+
+            # define column content
+            temp, icon_name, prob = forecast
             time_txt = time.strftime("%l%p").replace("PM", "pm").replace("AM", "am")
+            temp_txt = f"{temp}°"
+            prob_txt = f"{prob}%"
+            icon = get_icon(ICON_DIR / f"{icon_name}.png", (cell_width, icon_height))
 
-            temp, icon_name = forecast
-            icon = get_icon(ICON_DIR / f"{icon_name}.png", (cell_width, cell_height))
-
-            draw.text(
-                get_center_coord(
-                    time_txt, (cell_width, cell_height), (x, y), font=time_font
-                ),
+            draw_text_at_center(
+                draw,
                 time_txt,
-                fill="black",
                 font=time_font,
+                block_size=(cell_width, time_height),
+                xy=(x, 0),
             )
-
-            draw.text(
-                get_center_coord(
-                    str(temp),
-                    (cell_width, cell_height),
-                    (x, y + cell_height),
-                    font=temp_font,
-                ),
-                f"{temp}°",
-                fill="black",
+            draw_text_at_center(
+                draw,
+                temp_txt,
                 font=temp_font,
+                block_size=(cell_width, temp_height),
+                xy=(x, time_height),
             )
-            block.paste(
-                icon,
-                get_center_coord(
-                    icon, (cell_width, cell_height), (x, y + cell_height * 2)
-                ),
-            )
+            block.paste(icon, (get_center_coord(
+                icon, (cell_width, icon_height), (x, time_height+temp_height)
+            )[0], time_height + temp_height))
+
+            draw_text_at_center(draw, prob_txt, font=prob_font, block_size=(cell_width, prob_height), xy=(x,time_height + temp_height + icon.height))
 
         self.image.paste(block, self.grid_weather_block.paste_coord)
 

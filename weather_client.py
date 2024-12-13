@@ -75,7 +75,7 @@ class WeatherClient(ABC):
             self._load_5days_forecast,
         )
 
-    def get_12hrs_forecast(self) -> list[tuple[datetime, float]]:
+    def get_12hrs_forecast(self) -> list[tuple[datetime, tuple[float, str, float]]]:
         # TODO add percentage if rainning
         return self._get_weather(
             self.cache_forecast_path,
@@ -300,8 +300,8 @@ class AccuWeatherClient(WeatherClient):
 
     def _load_12hrsforecast(
         self, data: list[dict]
-    ) -> list[tuple[datetime, tuple[float, str]]]:
-        """load 12 hrs forecast temperature and icon
+    ) -> list[tuple[datetime, tuple[float, str, float]]]:
+        """load 12 hrs forecast temperature, icon and PrecipitationProbability
 
         Args:
             data (list[dict]):  data fetched from AccuWeather
@@ -310,7 +310,7 @@ class AccuWeatherClient(WeatherClient):
             KeyError: unknown format
 
         Returns:
-            list[tuple[datetime, tuple[float, str]]]: a list of sorted forecast in (time, (temp, icon))
+            list[tuple[datetime, tuple[float, str]]]: a list of sorted forecast in (time, (temp, icon, PrecipitationProbability))
         """
         weather_data = {}
         try:
@@ -319,6 +319,7 @@ class AccuWeatherClient(WeatherClient):
                 weather_data[dt] = (
                     item["Temperature"]["Value"],
                     self.match_openweather_icon(item["WeatherIcon"]),
+                    item["PrecipitationProbability"]
                 )
 
             return sorted(weather_data.items())
