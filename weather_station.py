@@ -30,7 +30,10 @@ class WeatherStation:
             weather_icon_ratio (float, optional): horizontal ratio of the icon in the short weather block . Defaults to 0.4
             use_hrs_forecast (bool, optional): optiona to display hourly forecast or 5days forecast. Defaults to False.
         """
-        # TODO validate ratio
+        assert 0 < grid_horiz_ratio < 1, "grid_horiz_ratio need to between 0 and 1"
+        assert 0 < time_vert_ratio < 1, "time_vert_ratio need to between 0 and 1"
+        assert 0 < weather_icon_ratio < 1, "weather_icon_ratio need to between 0 and 1"
+        
         if user_content and not isinstance(user_content, (Image.Image, str)):
             raise ValueError("user_content should be Image.Image or str")
 
@@ -153,7 +156,7 @@ class WeatherStation:
         icon_vert_ratio: float = 0.5,
         prob_ratio: float = 0.15,
     ):
-        # TODO : limit num_hrs to 1, 2,3,4,5,6, 8, 10, 12
+        # TODO : limit num_hrs to 1, 2,3,4,5,6, 8, 10, 12, and divide to 2 rows if hours > 6
         # define forecast block
         block = Image.new("L", self.grid_weather_block.as_tuple(), 255)
         draw = ImageDraw.Draw(block)
@@ -386,7 +389,8 @@ if __name__ == "__main__":
 
     weather_station = WeatherStation(
         display,
-        Image.open(ICON_DIR / "cat.jpg"),
+        # Image.open(ICON_DIR / "cat.jpg"),
+        Image.open("/home/pi/Pictures/mofusand.jpg"),
         wc,
         use_hrs_forecast=args.use_accu,
     )
