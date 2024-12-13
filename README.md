@@ -61,7 +61,7 @@ Alternatively, you can run the program directly without setting up a cron job.
 
 # Results
 ![eink_open_weather_5days](demo/display_v1.jpeg)
-![eink_open_weather_5hrs](demo/display_v2.jpeg)
+![eink_open_weather_5hrs](demo/display_v3.jpeg)
 
 
 Feel free to reach out if you have any questions or need further assistance!
