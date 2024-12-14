@@ -316,6 +316,9 @@ class AccuWeatherClient(WeatherClient):
         try:
             for item in data:
                 dt = datetime.strptime(item["DateTime"], "%Y-%m-%dT%H:%M:%S%z")
+                if item["WeatherIcon"] == 18 and dt.hour > 18:
+                    item["WeatherIcon"] = -18
+                
                 weather_data[dt] = (
                     item["Temperature"]["Value"],
                     self.match_openweather_icon(item["WeatherIcon"]),
@@ -354,33 +357,48 @@ class AccuWeatherClient(WeatherClient):
         Returns:
             str: icon name of openweather
         """
-        if icon_num in (1, 2, 33, 34):
+        if icon_num in (1, 2):
             # sunny / mostly sunny -> sunny
             return "01d"
-        elif icon_num in (3, 4, 35, 36):
+        elif icon_num in (33, 34):
+            # sunny / mostly sunny -> sunny
+            return "01n"
+        elif icon_num in (3, 4):
             # Partly sunny / intermittent clouds -> few clouds
             return "02d"
-        elif icon_num in (5, 6, 37, 38):
+        elif icon_num in (35, 36):
+            # Partly sunny / intermittent clouds -> few clouds
+            return "02n"
+        elif icon_num in (5, 6):
             # Hazy Sunshine, Mostly Cloudy -> scattered clouds
             return "03d"
-        elif icon_num in (
-            7,
-            8,
-        ):
+        elif icon_num in (37, 38):
+            # Hazy Sunshine, Mostly Cloudy -> scattered clouds
+            return "03n"
+        elif icon_num in (7, 8):
             # Cloudy, Dreary -> broken clouds
-            return "03d"
+            return "04d"
         elif icon_num in (11,):
             # Fog -> mist
             return "50d"
-        elif icon_num in (12, 13, 14, 39, 40):
+        elif icon_num in (12, 13, 14 ):
             # Showesr, Mostly Cloudy w Showers, Partly Sunny W Showers -> shower rain
             return "09d"
-        elif icon_num in (15, 16, 17, 41, 42):
+        elif icon_num in (39, 40):
+            # Showesr, Mostly Cloudy w Showers, Partly Sunny W Showers -> shower rain
+            return "09n"
+        elif icon_num in (15, 16, 17):
             # T-Storms, Mostly Cloudy w T-Storms, Partly Sunny w T-Storms -> thunderstorm
             return "11d"
+        elif icon_num in (41, 42):
+            # T-Storms, Mostly Cloudy w T-Storms, Partly Sunny w T-Storms -> thunderstorm
+            return "11n"
         elif icon_num in (18,):
             # rain -> rain
             return "10d"
+        elif icon_num in (-18,):
+            # rain -> rain
+            return "10n"
         elif icon_num in (19, 20, 21, 22, 23, 24, 25, 26, 29, 43, 44):
             # snow -> snow
             return "13d"
