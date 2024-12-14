@@ -169,7 +169,7 @@ class WeatherStation:
         cell_width = self.grid_weather_block.width // num_hrs
 
         # define text size used
-        temp_font = find_best_text_size("25.5°", cell_width, temp_height)
+        temp_font = find_best_text_size("25°", cell_width, temp_height)
         time_font = find_best_text_size("10a.m", cell_width, time_height)
         prob_font = find_best_text_size("99%", cell_width, prob_height)
 

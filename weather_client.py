@@ -320,7 +320,7 @@ class AccuWeatherClient(WeatherClient):
                     item["WeatherIcon"] = -18
                 
                 weather_data[dt] = (
-                    item["Temperature"]["Value"],
+                    round(item["Temperature"]["Value"]),
                     self.match_openweather_icon(item["WeatherIcon"]),
                     item["PrecipitationProbability"]
                 )
